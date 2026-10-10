@@ -33,6 +33,7 @@ import {
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { jsPDF } from 'jspdf';
+import html2canvas from 'html2canvas';
 import TextTransformIllustration from './TextTransformIllustration';
 import CustomDropdown from './CustomDropdown';
 import DownloadModal from './DownloadModal';
@@ -420,7 +421,7 @@ export default function TextTransform({ darkMode, showToast }) {
   const [fontModalSearch, setFontModalSearch] = useState('');
 
   // Selected transformation state
-  const [selectedTransformId, setSelectedTransformId] = useState('uppercase');
+  const [selectedTransformId, setSelectedTransformId] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState('All');
   const [isPreviewMode, setIsPreviewMode] = useState(true);
@@ -558,6 +559,7 @@ export default function TextTransform({ darkMode, showToast }) {
     setAlignment('left');
 
     const plainText = removeUnicodeAndFormatting(inputText);
+    setSelectedTransformId(null);
     updateText(plainText);
     try {
       confetti({ particleCount: 20, spread: 45, origin: { y: 0.8 } });
@@ -930,6 +932,7 @@ export default function TextTransform({ darkMode, showToast }) {
   // Real-time transformed preview calculation
   const transformedText = useMemo(() => {
     if (!inputText) return '';
+    if (!selectedTransformId) return inputText;
     const active = allTransformations.find((item) => item.id === selectedTransformId);
     if (!active) return inputText;
     try {
@@ -985,11 +988,13 @@ export default function TextTransform({ darkMode, showToast }) {
     updateText('');
     setTextHighlights([]);
     setHighlightColor('transparent');
+    setSelectedTransformId(null);
     showToast?.('Editor cleared', 'info', 'Cleared');
   };
 
   const handleSample = () => {
     updateText(SAMPLE_TEXT);
+    setSelectedTransformId(null);
     showToast?.('Loaded sample text', 'info', 'Sample Loaded');
   };
 
@@ -1000,6 +1005,7 @@ export default function TextTransform({ darkMode, showToast }) {
     reader.onload = (evt) => {
       const content = evt.target?.result;
       if (typeof content === 'string') {
+        setSelectedTransformId(null);
         updateText(content);
         showToast?.(`Loaded ${file.name}`, 'success', 'File Loaded');
       }
@@ -1009,7 +1015,7 @@ export default function TextTransform({ darkMode, showToast }) {
   };
 
   const handleCopy = async (textToCopy) => {
-    const target = textToCopy || (isPreviewMode ? transformedText : inputText);
+    const target = textToCopy || inputText;
     try {
       await navigator.clipboard.writeText(target);
       setCopied(true);
@@ -1023,84 +1029,217 @@ export default function TextTransform({ darkMode, showToast }) {
     }
   };
 
-  const handleDownloadPdf = (customFileName) => {
-    const content = isPreviewMode ? transformedText : inputText;
+  const handleDownloadPdf = async (customFileName) => {
+    const content = inputText;
     if (!content || !content.trim()) {
       showToast?.('No text content available to export to PDF', 'info', 'Empty Text');
       return;
     }
-    try {
-      const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
-      const margin = 45;
-      const pageWidth = doc.internal.pageSize.getWidth();
-      const pageHeight = doc.internal.pageSize.getHeight();
-      const maxLineWidth = pageWidth - margin * 2;
-      let cursorY = 50;
 
-      // Document Title
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(18);
-      doc.setTextColor(15, 23, 42);
-      doc.text('Transformed Document', margin, cursorY);
-      cursorY += 20;
+    try {
+      showToast?.('Generating styled PDF document...', 'info', 'Preparing PDF');
+
+      // 1. Ensure Google Font is loaded and document fonts are ready
+      loadGoogleFont(selectedFont);
+      if (document.fonts) {
+        try {
+          await document.fonts.load(`${selectedFontSize} "${selectedFont}"`);
+          await document.fonts.ready;
+        } catch {}
+      }
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      // 2. Build styled export container matching screen typography and highlights
+      const container = document.createElement('div');
+      container.style.position = 'fixed';
+      container.style.left = '0';
+      container.style.top = '0';
+      container.style.width = '794px';
+      container.style.backgroundColor = '#ffffff';
+      container.style.padding = '48px';
+      container.style.boxSizing = 'border-box';
+      container.style.zIndex = '-9999';
+      container.style.pointerEvents = 'none';
+
+      // Header Title
+      const titleEl = document.createElement('h1');
+      titleEl.innerText = 'Transformed Document';
+      titleEl.style.fontSize = '22px';
+      titleEl.style.fontWeight = '800';
+      titleEl.style.color = '#0f172a';
+      titleEl.style.margin = '0 0 6px 0';
+      titleEl.style.fontFamily = 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+      container.appendChild(titleEl);
 
       // Subtitle
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(9);
-      doc.setTextColor(100, 116, 139);
-      doc.text(`Generated with TextTools • Font: ${selectedFont} • ${new Date().toLocaleString()}`, margin, cursorY);
-      cursorY += 15;
+      const subEl = document.createElement('div');
+      subEl.innerText = `Generated with TextTools • Font: ${selectedFont} • ${new Date().toLocaleString()}`;
+      subEl.style.fontSize = '11px';
+      subEl.style.color = '#64748b';
+      subEl.style.margin = '0 0 16px 0';
+      subEl.style.fontFamily = 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+      container.appendChild(subEl);
 
-      // Divider
-      doc.setDrawColor(226, 232, 240);
-      doc.line(margin, cursorY, pageWidth - margin, cursorY);
-      cursorY += 18;
+      // Divider Line
+      const hrEl = document.createElement('div');
+      hrEl.style.height = '1px';
+      hrEl.style.backgroundColor = '#e2e8f0';
+      hrEl.style.margin = '0 0 18px 0';
+      container.appendChild(hrEl);
 
-      // Summary Box
-      doc.setFillColor(248, 250, 252);
-      doc.roundedRect(margin, cursorY, maxLineWidth, 32, 4, 4, 'F');
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(8.5);
-      doc.setTextColor(30, 41, 59);
-      doc.text(
-        `Characters: ${content.length}   |   Words: ${content.trim() ? content.trim().split(/\s+/).length : 0}   |   Font: ${selectedFont}   |   Font Size: ${selectedFontSize}`,
-        margin + 12,
-        cursorY + 20
-      );
-      cursorY += 44;
+      // Metrics Summary Box
+      const summaryBox = document.createElement('div');
+      summaryBox.style.backgroundColor = '#f8fafc';
+      summaryBox.style.border = '1px solid #e2e8f0';
+      summaryBox.style.borderRadius = '8px';
+      summaryBox.style.padding = '10px 14px';
+      summaryBox.style.margin = '0 0 24px 0';
+      summaryBox.style.fontFamily = 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+      summaryBox.style.fontSize = '11px';
+      summaryBox.style.color = '#334155';
+      summaryBox.style.fontWeight = '600';
+      const words = content.trim() ? content.trim().split(/\s+/).length : 0;
+      summaryBox.innerText = `Characters: ${content.length}   |   Words: ${words}   |   Font: ${selectedFont}   |   Font Size: ${selectedFontSize}`;
+      container.appendChild(summaryBox);
 
-      // Body text
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(10);
-      doc.setTextColor(30, 41, 59);
+      // Main Styled Text Content
+      const contentDiv = document.createElement('div');
+      contentDiv.style.fontFamily = activeFontFamilyCss;
+      contentDiv.style.fontSize = selectedFontSize;
+      contentDiv.style.fontWeight = isBold ? 'bold' : 'normal';
+      contentDiv.style.fontStyle = isItalic ? 'italic' : 'normal';
+      contentDiv.style.textDecoration = `${isUnderline ? 'underline' : ''} ${isStrikethrough ? 'line-through' : ''}`.trim() || 'none';
+      contentDiv.style.color = textColor || '#0f172a';
+      contentDiv.style.textAlign = alignment || 'left';
+      contentDiv.style.whiteSpace = 'pre-wrap';
+      contentDiv.style.wordBreak = 'break-word';
+      contentDiv.style.lineHeight = '1.625';
 
-      const splitText = doc.splitTextToSize(String(content), maxLineWidth);
-      const lineHeight = 14;
+      // Render highlight intervals as styled inline elements with identical baseline alignment
+      if (!textHighlights || textHighlights.length === 0) {
+        contentDiv.textContent = content;
+      } else {
+        let currentIndex = 0;
+        for (let i = 0; i < textHighlights.length; i++) {
+          const { start, end, color } = textHighlights[i];
+          const clampedStart = Math.max(0, Math.min(start, content.length));
+          const clampedEnd = Math.max(clampedStart, Math.min(end, content.length));
 
-      for (let i = 0; i < splitText.length; i++) {
-        if (cursorY + lineHeight > pageHeight - margin) {
-          doc.addPage();
-          cursorY = margin;
+          if (clampedStart > currentIndex) {
+            const plainSpan = document.createElement('span');
+            plainSpan.textContent = content.slice(currentIndex, clampedStart);
+            plainSpan.style.display = 'inline';
+            plainSpan.style.lineHeight = 'inherit';
+            plainSpan.style.verticalAlign = 'baseline';
+            contentDiv.appendChild(plainSpan);
+          }
+
+          if (clampedEnd > clampedStart) {
+            const mark = document.createElement('span');
+            mark.textContent = content.slice(clampedStart, clampedEnd);
+            mark.style.backgroundColor = color;
+            mark.style.color = textColor || '#0f172a';
+            mark.style.borderRadius = '3px';
+            mark.style.padding = '1px 3px';
+            mark.style.display = 'inline';
+            mark.style.lineHeight = 'inherit';
+            mark.style.verticalAlign = 'baseline';
+            contentDiv.appendChild(mark);
+            currentIndex = clampedEnd;
+          }
         }
-        doc.text(splitText[i], margin, cursorY);
-        cursorY += lineHeight;
+
+        if (currentIndex < content.length) {
+          const plainSpan = document.createElement('span');
+          plainSpan.textContent = content.slice(currentIndex);
+          plainSpan.style.display = 'inline';
+          plainSpan.style.lineHeight = 'inherit';
+          plainSpan.style.verticalAlign = 'baseline';
+          contentDiv.appendChild(plainSpan);
+        }
       }
 
-      const cleanName = (typeof customFileName === 'string' && customFileName.trim()) ? customFileName.trim() : 'transformed-text';
-      const saveName = `${cleanName}.pdf`;
-      doc.save(saveName);
+      container.appendChild(contentDiv);
+      document.body.appendChild(container);
+
       try {
-        confetti({ particleCount: 35, spread: 55, origin: { y: 0.85 } });
-      } catch (e) {}
-      showToast?.(`Saved as ${saveName}`, 'success', 'PDF Exported');
+        // 3. Rasterize to crisp 2x canvas via html2canvas with baseline alignment fix
+        const canvas = await html2canvas(container, {
+          scale: 2,
+          useCORS: true,
+          logging: false,
+          backgroundColor: '#ffffff',
+          scrollX: 0,
+          scrollY: 0,
+          windowWidth: 794,
+          onclone: (clonedDoc) => {
+            // Prevent Tailwind CSS preflight img { display: block } from corrupting html2canvas font baseline measurement
+            const style = clonedDoc.createElement('style');
+            style.textContent = `
+              img, svg, video, canvas {
+                display: inline-block !important;
+              }
+            `;
+            clonedDoc.head.appendChild(style);
+
+            // Copy all Google font link tags into cloned document head
+            document.head.querySelectorAll('link[rel="stylesheet"]').forEach((link) => {
+              if (link.href && !clonedDoc.head.querySelector(`link[href="${link.href}"]`)) {
+                clonedDoc.head.appendChild(link.cloneNode(true));
+              }
+            });
+          },
+        });
+
+        // 4. Construct A4 PDF with multi-page slicing
+        const doc = new jsPDF({
+          orientation: 'portrait',
+          unit: 'pt',
+          format: 'a4',
+        });
+
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const pageHeight = doc.internal.pageSize.getHeight();
+        const imgWidth = pageWidth;
+        const imgHeight = (canvas.height * imgWidth) / canvas.width;
+        const imgData = canvas.toDataURL('image/jpeg', 0.95);
+
+        let heightLeft = imgHeight;
+        let position = 0;
+
+        doc.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
+        heightLeft -= pageHeight;
+
+        while (heightLeft > 0) {
+          position -= pageHeight;
+          doc.addPage();
+          doc.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
+          heightLeft -= pageHeight;
+        }
+
+        const cleanName = typeof customFileName === 'string' && customFileName.trim()
+          ? customFileName.trim()
+          : 'transformed-text';
+        const saveName = `${cleanName}.pdf`;
+        doc.save(saveName);
+
+        try {
+          confetti({ particleCount: 35, spread: 55, origin: { y: 0.85 } });
+        } catch {}
+        showToast?.(`Saved as ${saveName} with all styles & highlights`, 'success', 'PDF Exported');
+      } finally {
+        if (container.parentNode) {
+          container.parentNode.removeChild(container);
+        }
+      }
     } catch (e) {
       console.error('PDF Generation Error:', e);
-      showToast?.('Failed to generate PDF document.', 'error', 'Export Failed');
+      showToast?.('Failed to generate styled PDF document.', 'error', 'Export Failed');
     }
   };
 
   const handleDownloadTxt = (customFileName) => {
-    const content = isPreviewMode ? transformedText : inputText;
+    const content = inputText;
     if (!content) {
       showToast?.('No text content available to download', 'info', 'Empty Text');
       return;

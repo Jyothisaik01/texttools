@@ -32,6 +32,11 @@
     --pill-text: #34d399;
     --pill-border: #059669;
   }
+
+  /* Fix html2canvas font baseline vertical alignment with Tailwind CSS */
+  img, svg, video, canvas {
+    display: inline-block;
+  }
 }
 
 body {
