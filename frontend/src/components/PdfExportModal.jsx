@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { X, FileDown, CheckCircle2, Settings, ShieldCheck, Sparkles, Loader2 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { generatePdf } from '../services/api';
+import CustomDropdown from './CustomDropdown';
 
 export default function PdfExportModal({
   isOpen,
@@ -126,16 +127,19 @@ export default function PdfExportModal({
               <label className="block text-xs font-semibold text-slate-300 mb-1">
                 Body Font Size:
               </label>
-              <select
+              <CustomDropdown
                 value={fontSize}
-                onChange={(e) => setFontSize(Number(e.target.value))}
-                className="w-full px-3 py-2 text-xs bg-slate-950 border border-slate-800 rounded-xl text-slate-200 focus:border-emerald-500"
-              >
-                <option value={9}>Compact (9 pt)</option>
-                <option value={11}>Standard (11 pt)</option>
-                <option value={13}>Comfortable (13 pt)</option>
-                <option value={15}>Large (15 pt)</option>
-              </select>
+                onChange={(val) => setFontSize(Number(val))}
+                options={[
+                  { value: 9, label: 'Compact (9 pt)' },
+                  { value: 11, label: 'Standard (11 pt)' },
+                  { value: 13, label: 'Comfortable (13 pt)' },
+                  { value: 15, label: 'Large (15 pt)' },
+                ]}
+                darkMode={true}
+                className="w-full"
+                buttonClassName="w-full bg-slate-950 border-slate-800 text-slate-200"
+              />
             </div>
 
             {/* Page Format */}
@@ -143,14 +147,17 @@ export default function PdfExportModal({
               <label className="block text-xs font-semibold text-slate-300 mb-1">
                 Paper Size:
               </label>
-              <select
+              <CustomDropdown
                 value={exportMode}
-                onChange={(e) => setExportMode(e.target.value)}
-                className="w-full px-3 py-2 text-xs bg-slate-950 border border-slate-800 rounded-xl text-slate-200 focus:border-emerald-500"
-              >
-                <option value="a4">Standard A4</option>
-                <option value="letter">US Letter</option>
-              </select>
+                onChange={(val) => setExportMode(val)}
+                options={[
+                  { value: 'server', label: 'Standard A4' },
+                  { value: 'client', label: 'US Letter' },
+                ]}
+                darkMode={true}
+                className="w-full"
+                buttonClassName="w-full bg-slate-950 border-slate-800 text-slate-200"
+              />
             </div>
           </div>
 

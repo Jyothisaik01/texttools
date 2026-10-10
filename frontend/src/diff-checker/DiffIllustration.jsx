@@ -100,3 +100,4 @@ export default function DiffIllustration({ className = 'w-full h-full' }) {
     </div>
   );
 }
+

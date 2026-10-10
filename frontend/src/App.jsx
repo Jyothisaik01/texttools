@@ -963,27 +963,15 @@ export default function App() {
             >
               <Settings className="w-3.5 h-3.5" />
             </button>
-
-            {/* User Avatar Circle from Screenshot */}
-            <div
-              className={`w-7 h-7 rounded-xl border flex items-center justify-center font-bold text-xs select-none shadow-2xs ${
-                darkMode
-                  ? 'bg-purple-950/60 border-purple-800 text-purple-300'
-                  : 'bg-purple-100 border-purple-200 text-purple-700'
-              }`}
-              title="Jyothisai"
-            >
-              A
-            </div>
           </div>
         </div>
       </header>
 
       {/* Main Layout: Left Sidebar + Screen Router */}
       <div className="flex-1 min-h-0 flex overflow-hidden">
-        {/* Left Vertical Sidebar (Matching Screenshot) */}
+        {/* Left Vertical Sidebar: Sleek Architectural Edge-Docked Highlight (NO PILL SHAPES) */}
         <aside
-          className={`shrink-0 w-16 sm:w-18 border-r flex flex-col items-center py-4 gap-3 select-none transition-colors ${
+          className={`shrink-0 w-20 border-r flex flex-col items-stretch py-3 gap-1 select-none transition-colors duration-300 ease-in-out z-20 ${
             darkMode ? 'bg-black border-zinc-800' : 'bg-white border-slate-200'
           }`}
         >
@@ -1000,15 +988,21 @@ export default function App() {
                 key={item.id}
                 type="button"
                 onClick={() => setActiveTab(item.id)}
-                className={`w-13 h-14 rounded-2xl flex flex-col items-center justify-center gap-1 transition-all cursor-pointer ${
+                className={`w-full py-2.5 px-1.5 flex flex-col items-center justify-center gap-1.5 cursor-pointer relative transition-all duration-200 ease-out border-l-4 ${
                   isActive
-                    ? 'bg-blue-50 text-blue-600 border border-blue-200 dark:bg-blue-950/50 dark:border-blue-800 dark:text-blue-400 shadow-2xs font-bold'
-                    : 'text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-zinc-900 border border-transparent font-medium'
+                    ? 'border-blue-600 bg-slate-100/90 dark:bg-zinc-800/80 text-blue-600 dark:text-blue-400 font-bold'
+                    : 'border-transparent text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-zinc-900 font-medium'
                 }`}
-                title={item.id}
+                title={item.label.replace('\n', ' ')}
               >
-                <Icon className={`w-4 h-4 ${isActive ? 'text-blue-600 dark:text-blue-400' : ''}`} />
-                <span className="text-[9px] leading-tight text-center whitespace-pre-line tracking-tight">
+                <Icon
+                  className={`w-5 h-5 shrink-0 transition-transform duration-200 ${
+                    isActive
+                      ? 'text-blue-600 dark:text-blue-400 stroke-[2.2]'
+                      : 'text-slate-500 dark:text-zinc-400 stroke-[1.8]'
+                  }`}
+                />
+                <span className="text-[10px] leading-[13px] text-center whitespace-pre-line tracking-tight">
                   {item.label}
                 </span>
               </button>
@@ -1344,30 +1338,48 @@ export default function App() {
 
             {/* Bottom Footer from Image 1 */}
             <div className="shrink-0 pt-2.5 mt-1.5 flex items-center justify-between border-t border-slate-100 dark:border-zinc-800 text-xs">
-              <div className="flex items-center gap-4">
-                <label className="flex items-center gap-2 cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    checked={ignoreCase}
-                    onChange={(e) => setIgnoreCase(e.target.checked)}
-                    className="w-4 h-4 rounded border-slate-300 text-blue-600 accent-blue-600 focus:ring-blue-500 cursor-pointer"
-                  />
-                  <span className={`text-xs font-semibold ${darkMode ? 'text-zinc-200' : 'text-slate-800'}`}>
-                    Ignore case
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setIgnoreCase(!ignoreCase)}
+                  className={`px-2 py-1 rounded-lg border flex items-center gap-1.5 transition-all duration-200 ease-out cursor-pointer text-xs font-semibold select-none ${
+                    ignoreCase
+                      ? 'bg-blue-50 dark:bg-blue-950/60 border-blue-200 dark:border-blue-800 text-blue-600 dark:text-blue-400 shadow-2xs'
+                      : 'bg-transparent border-slate-200 dark:border-zinc-800 text-slate-600 dark:text-zinc-400 hover:bg-slate-50 dark:hover:bg-zinc-900'
+                  }`}
+                >
+                  <span
+                    className={`w-3.5 h-3.5 rounded flex items-center justify-center border text-[9px] transition-colors duration-200 ${
+                      ignoreCase
+                        ? 'bg-blue-600 border-blue-600 text-white'
+                        : 'border-slate-300 dark:border-zinc-700 bg-white dark:bg-zinc-900'
+                    }`}
+                  >
+                    {ignoreCase && <Check className="w-2.5 h-2.5 stroke-[3]" />}
                   </span>
-                </label>
+                  <span>Ignore case</span>
+                </button>
 
-                <label className="flex items-center gap-2 cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    checked={matchWholeWords}
-                    onChange={(e) => setMatchWholeWords(e.target.checked)}
-                    className="w-4 h-4 rounded border-slate-300 text-blue-600 accent-blue-600 focus:ring-blue-500 cursor-pointer"
-                  />
-                  <span className={`text-xs font-semibold ${darkMode ? 'text-zinc-200' : 'text-slate-800'}`}>
-                    Match whole words only
+                <button
+                  type="button"
+                  onClick={() => setMatchWholeWords(!matchWholeWords)}
+                  className={`px-2 py-1 rounded-lg border flex items-center gap-1.5 transition-all duration-200 ease-out cursor-pointer text-xs font-semibold select-none ${
+                    matchWholeWords
+                      ? 'bg-blue-50 dark:bg-blue-950/60 border-blue-200 dark:border-blue-800 text-blue-600 dark:text-blue-400 shadow-2xs'
+                      : 'bg-transparent border-slate-200 dark:border-zinc-800 text-slate-600 dark:text-zinc-400 hover:bg-slate-50 dark:hover:bg-zinc-900'
+                  }`}
+                >
+                  <span
+                    className={`w-3.5 h-3.5 rounded flex items-center justify-center border text-[9px] transition-colors duration-200 ${
+                      matchWholeWords
+                        ? 'bg-blue-600 border-blue-600 text-white'
+                        : 'border-slate-300 dark:border-zinc-700 bg-white dark:bg-zinc-900'
+                    }`}
+                  >
+                    {matchWholeWords && <Check className="w-2.5 h-2.5 stroke-[3]" />}
                   </span>
-                </label>
+                  <span>Match whole words only</span>
+                </button>
               </div>
 
               <button
