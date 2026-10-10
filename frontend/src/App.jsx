@@ -26,11 +26,15 @@ import {
   ArrowRightLeft,
   Undo2,
   Redo2,
+  LayoutGrid,
+  Type,
 } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import confetti from 'canvas-confetti';
 import DownloadModal from './components/DownloadModal';
 import SettingsModal from './components/SettingsModal';
+import DiffChecker from './diff-checker/DiffChecker';
+import TextTransform from './components/TextTransform';
 
 // 30 Distinct, accessible, beautiful color themes for rules and diff badges
 const RULE_COLORS = [
@@ -440,6 +444,13 @@ export default function App() {
   const [copied, setCopied] = useState(false);
   const [isDownloadModalOpen, setIsDownloadModalOpen] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState(() => {
+    try {
+      return localStorage.getItem('tt_activeTab') || 'diff-checker';
+    } catch {
+      return 'diff-checker';
+    }
+  });
   const [fontSize, setFontSize] = useState(() => {
     try {
       return localStorage.getItem('tt_fontSize') || 'text-xs';
@@ -449,6 +460,12 @@ export default function App() {
   });
   const [toast, setToast] = useState(null);
   const toastTimeoutRef = React.useRef(null);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('tt_activeTab', activeTab);
+    } catch {}
+  }, [activeTab]);
 
   // Undo / Redo history stacks for Input Text
   const [undoStack, setUndoStack] = useState([]);
@@ -841,9 +858,12 @@ export default function App() {
           darkMode ? 'bg-black border-zinc-800' : 'bg-white border-slate-200'
         }`}
       >
-        <div className="max-w-[1440px] mx-auto px-4 sm:px-6 h-13 flex items-center justify-between">
+        <div className="w-full px-4 sm:px-6 h-13 flex items-center justify-between">
           {/* Logo & Slogan */}
-          <div className="flex items-center gap-2.5">
+          <div
+            onClick={() => setActiveTab('find-replace')}
+            className="flex items-center gap-2.5 cursor-pointer"
+          >
             <img
               src="/favicon-64x64.png"
               alt="TextTools Logo"
@@ -863,6 +883,61 @@ export default function App() {
               </span>
             </div>
           </div>
+
+          {/* Center Navigation Tabs (From Image) */}
+          <nav className="hidden md:flex items-center gap-1.5 select-none">
+            <button
+              type="button"
+              onClick={() => setActiveTab('find-replace')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
+                activeTab === 'find-replace'
+                  ? 'bg-blue-50 text-blue-600 border border-blue-200 dark:bg-blue-950/50 dark:border-blue-800 dark:text-blue-400 shadow-2xs font-bold'
+                  : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white border border-transparent hover:bg-slate-50 dark:hover:bg-zinc-900'
+              }`}
+            >
+              <FileText className="w-3.5 h-3.5" />
+              <span>Find & Replace</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab('diff-checker')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
+                activeTab === 'diff-checker'
+                  ? 'bg-blue-50 text-blue-600 border border-blue-200 dark:bg-blue-950/50 dark:border-blue-800 dark:text-blue-400 shadow-2xs font-bold'
+                  : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white border border-transparent hover:bg-slate-50 dark:hover:bg-zinc-900'
+              }`}
+            >
+              <ArrowRightLeft className="w-3.5 h-3.5" />
+              <span>Diff Checker</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab('text-transform')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
+                activeTab === 'text-transform'
+                  ? 'bg-blue-50 text-blue-600 border border-blue-200 dark:bg-blue-950/50 dark:border-blue-800 dark:text-blue-400 shadow-2xs font-bold'
+                  : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white border border-transparent hover:bg-slate-50 dark:hover:bg-zinc-900'
+              }`}
+            >
+              <Type className="w-3.5 h-3.5" />
+              <span>Text Transform</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab('more-tools')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
+                activeTab === 'more-tools'
+                  ? 'bg-blue-50 text-blue-600 border border-blue-200 dark:bg-blue-950/50 dark:border-blue-800 dark:text-blue-400 shadow-2xs font-bold'
+                  : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white border border-transparent hover:bg-slate-50 dark:hover:bg-zinc-900'
+              }`}
+            >
+              <LayoutGrid className="w-3.5 h-3.5" />
+              <span>More Tools</span>
+            </button>
+          </nav>
 
           {/* Right Header Icons */}
           <div className="flex items-center gap-2">
@@ -888,20 +963,132 @@ export default function App() {
             >
               <Settings className="w-3.5 h-3.5" />
             </button>
+
+            {/* User Avatar Circle from Screenshot */}
+            <div
+              className={`w-7 h-7 rounded-xl border flex items-center justify-center font-bold text-xs select-none shadow-2xs ${
+                darkMode
+                  ? 'bg-purple-950/60 border-purple-800 text-purple-300'
+                  : 'bg-purple-100 border-purple-200 text-purple-700'
+              }`}
+              title="Jyothisai"
+            >
+              A
+            </div>
           </div>
         </div>
       </header>
 
-      {/* Main Body (Flex column fitting 100% viewport) */}
-      <div className="flex-1 min-h-0 flex flex-col max-w-[1440px] w-full mx-auto px-4 sm:px-6 py-3.5 gap-3.5 overflow-hidden">
-        {/* Hero Banner: Full-Bleed Realistic Banner with HD Background & Right Illustration */}
-        <div
-          className={`shrink-0 w-full rounded-2xl border overflow-hidden shadow-xs relative flex items-center transition-all min-h-[125px] sm:min-h-[135px] ${
-            darkMode
-              ? 'bg-zinc-950 border-zinc-800'
-              : 'bg-gradient-to-r from-white via-sky-50/70 to-[#E4EDFD] border-blue-100/90'
+      {/* Main Layout: Left Sidebar + Screen Router */}
+      <div className="flex-1 min-h-0 flex overflow-hidden">
+        {/* Left Vertical Sidebar (Matching Screenshot) */}
+        <aside
+          className={`shrink-0 w-16 sm:w-18 border-r flex flex-col items-center py-4 gap-3 select-none transition-colors ${
+            darkMode ? 'bg-black border-zinc-800' : 'bg-white border-slate-200'
           }`}
         >
+          {[
+            { id: 'find-replace', label: 'Find &\nReplace', icon: Search },
+            { id: 'diff-checker', label: 'Diff\nChecker', icon: ArrowRightLeft },
+            { id: 'text-transform', label: 'Text\nTransform', icon: Type },
+            { id: 'more-tools', label: 'More\nTools', icon: LayoutGrid },
+          ].map((item) => {
+            const Icon = item.icon;
+            const isActive = activeTab === item.id;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => setActiveTab(item.id)}
+                className={`w-13 h-14 rounded-2xl flex flex-col items-center justify-center gap-1 transition-all cursor-pointer ${
+                  isActive
+                    ? 'bg-blue-50 text-blue-600 border border-blue-200 dark:bg-blue-950/50 dark:border-blue-800 dark:text-blue-400 shadow-2xs font-bold'
+                    : 'text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-zinc-900 border border-transparent font-medium'
+                }`}
+                title={item.id}
+              >
+                <Icon className={`w-4 h-4 ${isActive ? 'text-blue-600 dark:text-blue-400' : ''}`} />
+                <span className="text-[9px] leading-tight text-center whitespace-pre-line tracking-tight">
+                  {item.label}
+                </span>
+              </button>
+            );
+          })}
+        </aside>
+
+        {/* Dynamic Tool Content Router */}
+        <main className="flex-1 min-h-0 flex flex-col overflow-hidden">
+          {/* Diff Checker Screen */}
+          {activeTab === 'diff-checker' && (
+            <div className="flex-1 min-h-0 flex flex-col w-full mx-auto px-4 sm:px-6 py-3.5 overflow-hidden">
+              <DiffChecker darkMode={darkMode} showToast={showToast} />
+            </div>
+          )}
+
+          {/* Text Transform Screen */}
+          {activeTab === 'text-transform' && (
+            <div className="flex-1 min-h-0 flex flex-col max-w-[1440px] w-full mx-auto px-4 sm:px-6 py-3.5 overflow-hidden">
+              <TextTransform darkMode={darkMode} showToast={showToast} />
+            </div>
+          )}
+
+          {/* More Tools Screen */}
+          {activeTab === 'more-tools' && (
+            <div className="flex-1 min-h-0 flex flex-col max-w-[1440px] w-full mx-auto px-4 sm:px-6 py-3.5 overflow-hidden">
+              <div
+                className={`rounded-2xl border p-5 flex flex-col gap-4 shadow-xs ${
+                  darkMode ? 'bg-zinc-950 border-zinc-800 text-white' : 'bg-white border-slate-200 text-slate-900'
+                }`}
+              >
+                <div>
+                  <h2 className="text-xl font-black tracking-tight">
+                    <span>Developer</span> <span className="text-blue-600">Text Tools</span>
+                  </h2>
+                  <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1">
+                    Select a tool to launch and process your text.
+                  </p>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                  <div
+                    onClick={() => setActiveTab('find-replace')}
+                    className="p-4 rounded-xl border border-slate-200 dark:border-zinc-800 hover:border-blue-400 hover:bg-blue-50/20 cursor-pointer transition-all shadow-2xs"
+                  >
+                    <Search className="w-5 h-5 text-blue-600 mb-2" />
+                    <div className="font-bold text-sm">Find & Replace</div>
+                    <div className="text-xs text-slate-400 mt-1">Multi-rule collision-free regex replacer</div>
+                  </div>
+                  <div
+                    onClick={() => setActiveTab('diff-checker')}
+                    className="p-4 rounded-xl border border-slate-200 dark:border-zinc-800 hover:border-blue-400 hover:bg-blue-50/20 cursor-pointer transition-all shadow-2xs"
+                  >
+                    <ArrowRightLeft className="w-5 h-5 text-blue-600 mb-2" />
+                    <div className="font-bold text-sm">Diff Checker</div>
+                    <div className="text-xs text-slate-400 mt-1">Side-by-side & unified text comparison</div>
+                  </div>
+                  <div
+                    onClick={() => setActiveTab('text-transform')}
+                    className="p-4 rounded-xl border border-slate-200 dark:border-zinc-800 hover:border-blue-400 hover:bg-blue-50/20 cursor-pointer transition-all shadow-2xs"
+                  >
+                    <Type className="w-5 h-5 text-blue-600 mb-2" />
+                    <div className="font-bold text-sm">Text Transform</div>
+                    <div className="text-xs text-slate-400 mt-1">Case convert, Base64, URL encoding</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Find & Replace Screen */}
+          {activeTab === 'find-replace' && (
+            <div className="flex-1 min-h-0 flex flex-col max-w-[1440px] w-full mx-auto px-4 sm:px-6 py-3.5 gap-3.5 overflow-hidden">
+              {/* Hero Banner: Full-Bleed Realistic Banner with HD Background & Right Illustration */}
+              <div
+                className={`shrink-0 w-full rounded-2xl border overflow-hidden shadow-xs relative flex items-center transition-all min-h-[125px] sm:min-h-[135px] ${
+                  darkMode
+                    ? 'bg-zinc-950 border-zinc-800'
+                    : 'bg-gradient-to-r from-white via-sky-50/70 to-[#E4EDFD] border-blue-100/90'
+                }`}
+              >
           {/* Right Illustration: Anchored to the right, full height, 100% UNCLIPPED & complete */}
           <div
             className={`absolute right-0 top-0 bottom-0 h-full w-auto flex items-center justify-end select-none pointer-events-none overflow-hidden ${
@@ -1307,6 +1494,9 @@ export default function App() {
             </button>
           </div>
         </div>
+      </div>
+          )}
+        </main>
       </div>
 
       {/* Unified Download Popup Modal */}
