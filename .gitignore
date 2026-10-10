@@ -7,3 +7,5 @@ dist-ssr
 .DS_Store
 Thumbs.db
 recrop.ps1
+
+.vercel
