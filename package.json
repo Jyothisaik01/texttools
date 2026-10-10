@@ -1,0 +1,22 @@
+{
+  "name": "texttools",
+  "version": "2.4.0",
+  "private": true,
+  "description": "Fast, collision-free multi-text find and replace tool with real-time preview, 30 distinct palettes, PDF/TXT export, and undo/redo.",
+  "scripts": {
+    "dev": "npm --prefix frontend run dev",
+    "build": "npm --prefix frontend run build",
+    "preview": "npm --prefix frontend run preview"
+  },
+  "keywords": [
+    "find-and-replace",
+    "text-tools",
+    "diff-viewer",
+    "pdf-export",
+    "react",
+    "vite",
+    "tailwind"
+  ],
+  "author": "Jyothisai karumajji",
+  "license": "MIT"
+}
