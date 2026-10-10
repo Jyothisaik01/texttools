@@ -685,8 +685,11 @@ export default function App() {
   };
 
   // Download as PDF (Pure Client-side jsPDF)
-  const handleDownloadPdf = () => {
-    if (!outputText) return;
+  const handleDownloadPdf = (customFileName) => {
+    if (!outputText) {
+      showToast('No text available to export.', 'info', 'Empty Text');
+      return;
+    }
     try {
       const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
       const margin = 45;
@@ -732,7 +735,7 @@ export default function App() {
       doc.setFontSize(10);
       doc.setTextColor(30, 41, 59);
 
-      const splitText = doc.splitTextToSize(outputText, maxLineWidth);
+      const splitText = doc.splitTextToSize(String(outputText), maxLineWidth);
       const lineHeight = 14;
 
       for (let i = 0; i < splitText.length; i++) {
@@ -744,13 +747,15 @@ export default function App() {
         cursorY += lineHeight;
       }
 
-      const saveName = `${(customFileName || 'transformed-text').trim()}.pdf`;
+      const cleanName = (typeof customFileName === 'string' && customFileName.trim()) ? customFileName.trim() : 'transformed-text';
+      const saveName = `${cleanName}.pdf`;
       doc.save(saveName);
       try {
         confetti({ particleCount: 35, spread: 55, origin: { y: 0.85 } });
       } catch (e) {}
       showToast(`Saved as ${saveName}`, 'success', 'PDF Exported');
     } catch (e) {
+      console.error('PDF Generation Error:', e);
       showToast('Failed to generate PDF document.', 'error', 'Export Failed');
     }
   };
