@@ -1274,7 +1274,7 @@ export default function TextTransform({ darkMode, showToast }) {
   };
 
   return (
-    <div className="flex-1 min-h-0 flex flex-col gap-3 overflow-hidden select-text">
+    <div className="flex-1 min-h-0 flex flex-col gap-3 overflow-visible lg:overflow-hidden select-text">
       {/* 1. Hero Banner: Text Transform */}
       <div
         className={`shrink-0 w-full rounded-2xl border overflow-hidden shadow-xs relative flex items-center transition-all min-h-[125px] sm:min-h-[135px] ${

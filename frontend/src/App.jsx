@@ -969,7 +969,7 @@ export default function App() {
 
   return (
     <div
-      className={`h-screen max-h-screen flex flex-col overflow-hidden transition-colors duration-150 select-text ${
+      className={`min-h-screen lg:h-screen lg:max-h-screen flex flex-col overflow-y-auto lg:overflow-hidden transition-colors duration-150 select-text ${
         darkMode ? 'bg-black text-white' : 'bg-[#F8FAFC] text-slate-900'
       }`}
     >
@@ -1128,11 +1128,39 @@ export default function App() {
         </div>
       </header>
 
+      {/* Mobile Horizontal Navigation Tabs (Visible on < md only) */}
+      <div className="md:hidden shrink-0 border-b px-3 py-2 flex items-center gap-2 overflow-x-auto select-none bg-white dark:bg-black border-slate-200 dark:border-zinc-800">
+        {[
+          { id: 'find-replace', label: 'Find & Replace', icon: Search },
+          { id: 'diff-checker', label: 'Diff Checker', icon: ArrowRightLeft },
+          { id: 'text-transform', label: 'Text Transform', icon: Type },
+          { id: 'more-tools', label: 'More Tools', icon: LayoutGrid },
+        ].map((item) => {
+          const Icon = item.icon;
+          const isActive = activeTab === item.id;
+          return (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => setActiveTab(item.id)}
+              className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 whitespace-nowrap shrink-0 transition-all cursor-pointer ${
+                isActive
+                  ? 'bg-blue-50 text-blue-600 border border-blue-200 dark:bg-blue-950/60 dark:border-blue-800 dark:text-blue-400 font-bold shadow-2xs'
+                  : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white border border-transparent'
+              }`}
+            >
+              <Icon className="w-3.5 h-3.5 shrink-0" />
+              <span>{item.label}</span>
+            </button>
+          );
+        })}
+      </div>
+
       {/* Main Layout: Left Sidebar + Screen Router */}
-      <div className="flex-1 min-h-0 flex overflow-hidden">
-        {/* Left Vertical Sidebar: Sleek Architectural Edge-Docked Highlight (NO PILL SHAPES) */}
+      <div className="flex-1 min-h-0 flex flex-col md:flex-row overflow-visible lg:overflow-hidden">
+        {/* Left Vertical Sidebar: Sleek Architectural Edge-Docked Highlight (Hidden on mobile) */}
         <aside
-          className={`shrink-0 w-20 border-r flex flex-col items-stretch py-3 gap-1 select-none transition-colors duration-300 ease-in-out z-20 ${
+          className={`hidden md:flex shrink-0 w-20 border-r flex-col items-stretch py-3 gap-1 select-none transition-colors duration-300 ease-in-out z-20 ${
             darkMode ? 'bg-black border-zinc-800' : 'bg-white border-slate-200'
           }`}
         >
@@ -1172,17 +1200,17 @@ export default function App() {
         </aside>
 
         {/* Dynamic Tool Content Router */}
-        <main className="flex-1 min-h-0 flex flex-col overflow-hidden">
+        <main className="flex-1 min-h-0 flex flex-col overflow-y-auto lg:overflow-hidden">
           {/* Diff Checker Screen */}
           {activeTab === 'diff-checker' && (
-            <div className="flex-1 min-h-0 flex flex-col w-full mx-auto px-4 sm:px-6 py-3.5 overflow-hidden">
+            <div className="flex-1 min-h-0 flex flex-col w-full mx-auto px-3 sm:px-6 py-3 sm:py-3.5 overflow-visible lg:overflow-hidden pb-8 lg:pb-3.5">
               <DiffChecker darkMode={darkMode} showToast={showToast} />
             </div>
           )}
 
           {/* Text Transform Screen */}
           {activeTab === 'text-transform' && (
-            <div className="flex-1 min-h-0 flex flex-col max-w-[1440px] w-full mx-auto px-4 sm:px-6 py-3.5 overflow-hidden">
+            <div className="flex-1 min-h-0 flex flex-col max-w-[1440px] w-full mx-auto px-3 sm:px-6 py-3 sm:py-3.5 overflow-visible lg:overflow-hidden pb-8 lg:pb-3.5">
               <TextTransform darkMode={darkMode} showToast={showToast} />
             </div>
           )}
@@ -1235,7 +1263,7 @@ export default function App() {
 
           {/* Find & Replace Screen */}
           {activeTab === 'find-replace' && (
-            <div className="flex-1 min-h-0 flex flex-col max-w-[1440px] w-full mx-auto px-4 sm:px-6 py-3.5 gap-3.5 overflow-hidden">
+            <div className="flex-1 min-h-0 flex flex-col max-w-[1440px] w-full mx-auto px-3 sm:px-6 py-3 sm:py-3.5 gap-3.5 overflow-visible lg:overflow-hidden pb-8 lg:pb-3.5">
               {/* Hero Banner: Full-Bleed Realistic Banner with HD Background & Right Illustration */}
               <div
                 className={`shrink-0 w-full rounded-2xl border overflow-hidden shadow-xs relative flex items-center transition-all min-h-[125px] sm:min-h-[135px] ${
@@ -1244,9 +1272,9 @@ export default function App() {
                     : 'bg-gradient-to-r from-white via-sky-50/70 to-[#E4EDFD] border-blue-100/90'
                 }`}
               >
-          {/* Right Illustration: Anchored to the right, full height, 100% UNCLIPPED & complete */}
+          {/* Right Illustration: Anchored to the right on sm+, hidden on small mobile to avoid text squeeze */}
           <div
-            className={`absolute right-0 top-0 bottom-0 h-full w-auto flex items-center justify-end select-none pointer-events-none overflow-hidden ${
+            className={`hidden sm:flex absolute right-0 top-0 bottom-0 h-full w-auto items-center justify-end select-none pointer-events-none overflow-hidden ${
               darkMode ? 'opacity-40' : 'opacity-100'
             }`}
             style={{
@@ -1262,7 +1290,7 @@ export default function App() {
           </div>
 
           {/* Left Text Content & Pills */}
-          <div className="relative z-10 px-5 py-3 sm:px-7 sm:py-3.5 space-y-1.5 sm:space-y-2 max-w-[62%] sm:max-w-[60%] lg:max-w-[65%]">
+          <div className="relative z-10 px-4 py-3 sm:px-7 sm:py-3.5 space-y-1.5 sm:space-y-2 max-w-full sm:max-w-[60%] lg:max-w-[65%]">
             <h2 className={`text-xl sm:text-2xl lg:text-[25px] font-extrabold tracking-tight leading-tight ${darkMode ? 'text-white' : 'text-slate-900'}`}>
               Find & Replace <span className="text-blue-600">Multiple Text</span>
             </h2>
@@ -1304,7 +1332,7 @@ export default function App() {
         <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch">
           {/* Card 1: Find & Replace Rules */}
           <div
-            className={`lg:col-span-4 rounded-2xl border p-4 flex flex-col justify-between overflow-hidden transition-colors shadow-xs ${
+            className={`lg:col-span-4 rounded-2xl border p-4 flex flex-col justify-between overflow-hidden transition-colors shadow-xs min-h-[260px] lg:min-h-0 ${
               darkMode ? 'bg-black border-zinc-800' : 'bg-white border-slate-200'
             }`}
           >
@@ -1357,7 +1385,7 @@ export default function App() {
             </div>
 
             {/* Rules List (Image 4 colored card containers with numbered badges) */}
-            <div className="flex-1 min-h-0 overflow-y-auto space-y-2 pr-1">
+            <div className="flex-1 min-h-[140px] lg:min-h-0 overflow-y-auto space-y-2 pr-1">
               {rules.map((rule, idx) => {
                 const color = RULE_COLORS[idx % RULE_COLORS.length];
                 const stats = ruleStats[rule.id] || { matches: 0, replaced: 0 };
@@ -1445,7 +1473,7 @@ export default function App() {
 
           {/* Card 2: Input Text (Scrollable Textarea, Toggles at bottom) */}
           <div
-            className={`lg:col-span-4 rounded-2xl border p-4 flex flex-col justify-between overflow-hidden transition-colors shadow-xs ${
+            className={`lg:col-span-4 rounded-2xl border p-4 flex flex-col justify-between overflow-hidden transition-colors shadow-xs min-h-[320px] sm:min-h-[360px] lg:min-h-0 ${
               darkMode ? 'bg-black border-zinc-800' : 'bg-white border-slate-200'
             }`}
           >
@@ -1502,7 +1530,7 @@ export default function App() {
 
             {/* Scrollable Textarea with Synchronized Highlight Backdrop */}
             <div
-              className={`relative flex-1 min-h-0 rounded-xl border transition-colors overflow-hidden ${
+              className={`relative flex-1 min-h-[200px] sm:min-h-[240px] lg:min-h-0 rounded-xl border transition-colors overflow-hidden ${
                 darkMode
                   ? 'bg-black border-zinc-800 focus-within:border-blue-600'
                   : 'bg-white border-slate-200 focus-within:border-blue-400 focus-within:ring-2 focus-within:ring-blue-100'
@@ -1604,7 +1632,7 @@ export default function App() {
 
           {/* Card 3: Output Text (Formatted view with Bold/Italic/Markdown and Green Replacements) */}
           <div
-            className={`lg:col-span-4 rounded-2xl border p-4 flex flex-col justify-between overflow-hidden relative transition-colors shadow-xs ${
+            className={`lg:col-span-4 rounded-2xl border p-4 flex flex-col justify-between overflow-hidden relative transition-colors shadow-xs min-h-[320px] sm:min-h-[360px] lg:min-h-0 ${
               darkMode ? 'bg-black border-zinc-800' : 'bg-white border-slate-200'
             }`}
           >
@@ -1623,7 +1651,7 @@ export default function App() {
 
             {/* Scrollable Rich Output Area (renders markdown and distinct color highlights per word) */}
             <div
-              className={`flex-1 min-h-0 rounded-xl p-2.5 border overflow-y-auto ${fontSize} leading-relaxed font-sans transition-colors ${
+              className={`flex-1 min-h-[200px] sm:min-h-[240px] lg:min-h-0 rounded-xl p-2.5 border overflow-y-auto ${fontSize} leading-relaxed font-sans transition-colors ${
                 darkMode ? 'bg-black border-zinc-800' : 'bg-white border-slate-200'
               }`}
             >
