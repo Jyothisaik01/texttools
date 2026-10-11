@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
   FileText,
   Search,
@@ -471,6 +471,25 @@ export default function App() {
   const [undoStack, setUndoStack] = useState([]);
   const [redoStack, setRedoStack] = useState([]);
 
+  // Synchronized multi-color highlight backdrop for Input Text
+  const inputBackdropRef = useRef(null);
+  const inputTextareaRef = useRef(null);
+  const [inputScrollbarWidth, setInputScrollbarWidth] = useState(0);
+
+  const handleInputScroll = (e) => {
+    if (inputBackdropRef.current) {
+      inputBackdropRef.current.scrollTop = e.target.scrollTop;
+      inputBackdropRef.current.scrollLeft = e.target.scrollLeft;
+    }
+  };
+
+  useEffect(() => {
+    if (inputTextareaRef.current) {
+      const sbw = inputTextareaRef.current.offsetWidth - inputTextareaRef.current.clientWidth;
+      setInputScrollbarWidth(sbw);
+    }
+  }, [inputText, fontSize]);
+
   // Sync dark mode class to html element (pure black #000000)
   useEffect(() => {
     if (darkMode) {
@@ -607,15 +626,58 @@ export default function App() {
     showToast('Input text cleared (Undo available via ↶)', 'info', 'Text Cleared');
   };
 
-  // Transformation Engine (Collision-proof per-replacement tracking)
-  const { outputText, markedText, replacementRegistry, totalReplacements } = useMemo(() => {
+  // Transformation Engine (Collision-proof per-replacement tracking + per-rule match statistics)
+  const {
+    outputText,
+    markedText,
+    replacementRegistry,
+    totalReplacements,
+    ruleStats,
+    totalMatches,
+  } = useMemo(() => {
     if (!inputText) {
-      return { outputText: '', markedText: '', replacementRegistry: [], totalReplacements: 0 };
+      return {
+        outputText: '',
+        markedText: '',
+        replacementRegistry: [],
+        totalReplacements: 0,
+        ruleStats: {},
+        totalMatches: 0,
+      };
     }
+
+    const statsMap = {};
+    let totalFoundMatches = 0;
+
+    // 1. Calculate matches in original inputText for each rule
+    rules.forEach((rule) => {
+      if (!rule.find || !rule.find.trim()) {
+        statsMap[rule.id] = { matches: 0, replaced: 0 };
+        return;
+      }
+      try {
+        const escaped = rule.find.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const pattern = matchWholeWords ? `\\b${escaped}\\b` : escaped;
+        const flags = ignoreCase ? 'gi' : 'g';
+        const matches = inputText.match(new RegExp(pattern, flags));
+        const countForThisRule = matches ? matches.length : 0;
+        statsMap[rule.id] = { matches: countForThisRule, replaced: 0 };
+        totalFoundMatches += countForThisRule;
+      } catch {
+        statsMap[rule.id] = { matches: 0, replaced: 0 };
+      }
+    });
 
     const activeRules = rules.filter((r) => r.find && r.find.trim() !== '');
     if (activeRules.length === 0) {
-      return { outputText: inputText, markedText: inputText, replacementRegistry: [], totalReplacements: 0 };
+      return {
+        outputText: inputText,
+        markedText: inputText,
+        replacementRegistry: [],
+        totalReplacements: 0,
+        ruleStats: statsMap,
+        totalMatches: totalFoundMatches,
+      };
     }
 
     let currentMarked = inputText;
@@ -631,8 +693,10 @@ export default function App() {
       try {
         const regexClean = new RegExp(pattern, flags);
         const matches = currentClean.match(regexClean);
-        if (matches) {
-          count += matches.length;
+        const replacedForThis = matches ? matches.length : 0;
+        count += replacedForThis;
+        if (statsMap[rule.id]) {
+          statsMap[rule.id].replaced = replacedForThis;
         }
         currentClean = currentClean.replace(regexClean, rule.replace ?? '');
 
@@ -657,7 +721,104 @@ export default function App() {
       markedText: currentMarked,
       replacementRegistry: registry,
       totalReplacements: count,
+      ruleStats: statsMap,
+      totalMatches: totalFoundMatches,
     };
+  }, [inputText, rules, ignoreCase, matchWholeWords]);
+
+  // Synchronized Multi-Color Input Text Highlighting (Matching Output Preview colors 1:1)
+  const inputHighlightSpans = useMemo(() => {
+    if (!inputText) return null;
+    const activeRules = rules
+      .map((r, idx) => ({ ...r, originalIdx: idx }))
+      .filter((r) => r.find && r.find.trim() !== '');
+
+    if (activeRules.length === 0) return null;
+
+    const allMatches = [];
+
+    activeRules.forEach((rule) => {
+      try {
+        const escaped = rule.find.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const pattern = matchWholeWords ? `\\b${escaped}\\b` : escaped;
+        const flags = ignoreCase ? 'gi' : 'g';
+        const regex = new RegExp(pattern, flags);
+        let match;
+        while ((match = regex.exec(inputText)) !== null) {
+          const start = match.index;
+          const end = start + match[0].length;
+          if (end > start) {
+            allMatches.push({
+              start,
+              end,
+              ruleId: rule.id,
+              ruleIdx: rule.originalIdx,
+              color: RULE_COLORS[rule.originalIdx % RULE_COLORS.length],
+            });
+          }
+          if (!regex.global) break;
+        }
+      } catch (e) {
+        console.warn('Regex error in input highlighting:', e);
+      }
+    });
+
+    if (allMatches.length === 0) return null;
+
+    // Sort matches: start index ascending, then longest match first
+    allMatches.sort((a, b) => a.start - b.start || (b.end - b.start) - (a.end - a.start));
+
+    // Non-overlapping interval filtering (earlier rules take precedence)
+    const nonOverlapping = [];
+    let lastEnd = 0;
+    for (const m of allMatches) {
+      if (m.start >= lastEnd) {
+        nonOverlapping.push(m);
+        lastEnd = m.end;
+      }
+    }
+
+    const spans = [];
+    let cursor = 0;
+
+    nonOverlapping.forEach((interval, i) => {
+      if (interval.start > cursor) {
+        spans.push(
+          <span key={`plain-${cursor}`} style={{ color: 'transparent' }}>
+            {inputText.slice(cursor, interval.start)}
+          </span>
+        );
+      }
+
+      const matchText = inputText.slice(interval.start, interval.end);
+      spans.push(
+        <mark
+          key={`match-${interval.start}-${i}`}
+          className={`rounded-sm font-normal ${interval.color.highlight}`}
+          style={{
+            color: 'transparent',
+            padding: '1px 0',
+            border: 'none',
+            boxShadow: 'none',
+            boxDecorationBreak: 'clone',
+            WebkitBoxDecorationBreak: 'clone',
+          }}
+        >
+          {matchText}
+        </mark>
+      );
+      cursor = interval.end;
+    });
+
+    if (cursor < inputText.length) {
+      spans.push(
+        <span key={`plain-${cursor}`} style={{ color: 'transparent' }}>
+          {inputText.slice(cursor)}
+        </span>
+      );
+    }
+
+    return spans;
   }, [inputText, rules, ignoreCase, matchWholeWords]);
 
   // Beautify Action
@@ -1155,12 +1316,17 @@ export default function App() {
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <h3 className={`text-base font-bold tracking-tight ${darkMode ? 'text-white' : 'text-slate-900'}`}>
+                    <h3 className={`text-sm font-bold tracking-tight ${darkMode ? 'text-white' : 'text-slate-900'}`}>
                       Replacement Rules
                     </h3>
                     <span className="px-2.5 py-0.5 text-xs font-semibold text-blue-600 bg-blue-50 dark:bg-blue-950 dark:text-blue-400 rounded-full border border-blue-100 dark:border-blue-900/60">
                       {rules.length} {rules.length === 1 ? 'rule' : 'rules'}
                     </span>
+                    {totalMatches > 0 && (
+                      <span className="px-2 py-0.5 text-xs font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/70 dark:text-emerald-400 rounded-full border border-emerald-200 dark:border-emerald-800">
+                        {totalMatches} {totalMatches === 1 ? 'match' : 'matches'}
+                      </span>
+                    )}
                   </div>
                   <p className="text-[11px] text-slate-400 dark:text-zinc-500 mt-0.5">
                     Changes apply instantly.
@@ -1194,50 +1360,68 @@ export default function App() {
             <div className="flex-1 min-h-0 overflow-y-auto space-y-2 pr-1">
               {rules.map((rule, idx) => {
                 const color = RULE_COLORS[idx % RULE_COLORS.length];
+                const stats = ruleStats[rule.id] || { matches: 0, replaced: 0 };
+                const hasFind = rule.find && rule.find.trim() !== '';
+
                 return (
                   <div
                     key={rule.id}
-                    className={`rounded-2xl border p-2 flex items-center gap-2 transition-all ${color.rowBg}`}
+                    className={`rounded-2xl border p-2 flex flex-col gap-1.5 transition-all ${color.rowBg}`}
                   >
-                    {/* Number Badge (1, 2, 3...) */}
-                    <div className={`w-6 h-6 rounded-lg font-bold text-xs flex items-center justify-center shrink-0 ${color.numBadge}`}>
-                      {idx + 1}
+                    <div className="flex items-center gap-2">
+                      {/* Number Badge (1, 2, 3...) */}
+                      <div className={`w-6 h-6 rounded-lg font-bold text-xs flex items-center justify-center shrink-0 ${color.numBadge}`}>
+                        {idx + 1}
+                      </div>
+
+                      {/* Find Input */}
+                      <input
+                        type="text"
+                        value={rule.find}
+                        onChange={(e) => handleUpdateRule(rule.id, 'find', e.target.value)}
+                        placeholder="e.g. apple"
+                        className={`flex-1 min-w-0 px-3 py-1.5 text-xs rounded-xl border focus:ring-1 focus:ring-blue-500 outline-none transition-colors ${
+                          darkMode
+                            ? 'bg-black border-zinc-800 text-white placeholder-zinc-600'
+                            : 'bg-white border-slate-200 text-slate-900 placeholder-slate-400'
+                        }`}
+                      />
+
+                      {/* Replace With Input */}
+                      <input
+                        type="text"
+                        value={rule.replace}
+                        onChange={(e) => handleUpdateRule(rule.id, 'replace', e.target.value)}
+                        placeholder="e.g. orange"
+                        className={`flex-1 min-w-0 px-3 py-1.5 text-xs rounded-xl border focus:ring-1 focus:ring-blue-500 outline-none transition-colors ${
+                          darkMode
+                            ? 'bg-black border-zinc-800 text-white placeholder-zinc-600'
+                            : 'bg-white border-slate-200 text-slate-900 placeholder-slate-400'
+                        }`}
+                      />
+
+                      {/* Delete Button */}
+                      <button
+                        onClick={() => handleDeleteRule(rule.id)}
+                        className="p-1.5 text-rose-500 hover:text-rose-600 hover:bg-rose-50/80 dark:hover:bg-zinc-900 rounded-lg transition-colors shrink-0"
+                        title="Delete rule"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
                     </div>
 
-                    {/* Find Input */}
-                    <input
-                      type="text"
-                      value={rule.find}
-                      onChange={(e) => handleUpdateRule(rule.id, 'find', e.target.value)}
-                      placeholder="e.g. apple"
-                      className={`flex-1 min-w-0 px-3 py-1.5 text-xs rounded-xl border focus:ring-1 focus:ring-blue-500 outline-none transition-colors ${
-                        darkMode
-                          ? 'bg-black border-zinc-800 text-white placeholder-zinc-600'
-                          : 'bg-white border-slate-200 text-slate-900 placeholder-slate-400'
-                      }`}
-                    />
-
-                    {/* Replace With Input */}
-                    <input
-                      type="text"
-                      value={rule.replace}
-                      onChange={(e) => handleUpdateRule(rule.id, 'replace', e.target.value)}
-                      placeholder="e.g. orange"
-                      className={`flex-1 min-w-0 px-3 py-1.5 text-xs rounded-xl border focus:ring-1 focus:ring-blue-500 outline-none transition-colors ${
-                        darkMode
-                          ? 'bg-black border-zinc-800 text-white placeholder-zinc-600'
-                          : 'bg-white border-slate-200 text-slate-900 placeholder-slate-400'
-                      }`}
-                    />
-
-                    {/* Delete Button */}
-                    <button
-                      onClick={() => handleDeleteRule(rule.id)}
-                      className="p-1.5 text-rose-500 hover:text-rose-600 hover:bg-rose-50/80 dark:hover:bg-zinc-900 rounded-lg transition-colors shrink-0"
-                      title="Delete rule"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
+                    {/* Per-Rule Match & Replaced Status Bar (Right-aligned, without bg, dot separator) */}
+                    {hasFind && (
+                      <div className="flex items-center justify-end gap-1.5 text-[11px] font-semibold px-1 pt-0.5 select-none">
+                        <span className={stats.matches > 0 ? (darkMode ? 'text-zinc-300' : 'text-slate-700') : (darkMode ? 'text-zinc-500' : 'text-slate-400')}>
+                          {stats.matches} {stats.matches === 1 ? 'match found' : 'matches found'}
+                        </span>
+                        <span className="text-slate-300 dark:text-zinc-650 font-bold">•</span>
+                        <span className={stats.replaced > 0 ? (darkMode ? 'text-zinc-400' : 'text-slate-600') : (darkMode ? 'text-zinc-500' : 'text-slate-400')}>
+                          {stats.replaced} replaced
+                        </span>
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -1268,9 +1452,9 @@ export default function App() {
             {/* Header */}
             <div className="shrink-0 flex items-center justify-between mb-2 pb-1.5 border-b border-slate-100 dark:border-zinc-800">
               <div className="flex items-center gap-2">
-                <div className="flex items-center gap-1.5">
-                  <FileText className="w-4 h-4 text-blue-600" />
-                  <h3 className={`text-sm font-bold tracking-tight ${darkMode ? 'text-white' : 'text-slate-900'}`}>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <FileText className="w-4 h-4 text-blue-600 shrink-0" />
+                  <h3 className={`text-sm font-bold tracking-tight whitespace-nowrap ${darkMode ? 'text-white' : 'text-slate-900'}`}>
                     Input Text
                   </h3>
                 </div>
@@ -1311,27 +1495,48 @@ export default function App() {
                   </button>
                 </div>
               </div>
-              <span className="text-[11px] text-slate-400 font-mono">
+              <span className="text-[11px] text-slate-400 font-mono shrink-0">
                 Characters: {inputStats.chars} | Words: {inputStats.words}
               </span>
             </div>
 
-            {/* Scrollable Textarea */}
+            {/* Scrollable Textarea with Synchronized Highlight Backdrop */}
             <div
-              className={`flex-1 min-h-0 rounded-xl p-2.5 border transition-colors overflow-hidden ${
+              className={`relative flex-1 min-h-0 rounded-xl border transition-colors overflow-hidden ${
                 darkMode
                   ? 'bg-black border-zinc-800 focus-within:border-blue-600'
                   : 'bg-white border-slate-200 focus-within:border-blue-400 focus-within:ring-2 focus-within:ring-blue-100'
               }`}
             >
+              {/* Highlight backdrop */}
+              <div
+                ref={inputBackdropRef}
+                aria-hidden="true"
+                className={`absolute top-0 bottom-0 left-0 p-2.5 ${fontSize} font-sans whitespace-pre-wrap break-words overflow-hidden pointer-events-none select-none`}
+                style={{
+                  right: `${inputScrollbarWidth}px`,
+                  lineHeight: '1.625',
+                }}
+              >
+                {inputHighlightSpans}
+                {inputText.endsWith('\n') && '\u200B'}
+              </div>
+
+              {/* Editable transparent textarea */}
               <textarea
+                ref={inputTextareaRef}
                 value={inputText}
                 onChange={(e) => handleInputChange(e.target.value)}
                 onKeyDown={handleTextareaKeyDown}
+                onScroll={handleInputScroll}
                 placeholder="Paste your text here..."
-                className={`w-full h-full ${fontSize} leading-relaxed border-none resize-none outline-none font-sans overflow-y-auto ${
-                  darkMode ? 'bg-black text-white placeholder-zinc-600' : 'bg-white text-slate-800 placeholder-slate-400'
+                className={`relative z-10 w-full h-full p-2.5 ${fontSize} font-sans border-none resize-none outline-none overflow-y-auto bg-transparent ${
+                  darkMode ? 'text-white placeholder-zinc-600' : 'text-slate-800 placeholder-slate-400'
                 }`}
+                style={{
+                  lineHeight: '1.625',
+                  caretColor: darkMode ? '#ffffff' : '#0f172a',
+                }}
                 spellCheck={false}
               />
             </div>
@@ -1439,14 +1644,25 @@ export default function App() {
             darkMode ? 'bg-black border-zinc-800' : 'bg-white border-slate-200'
           }`}
         >
-          {/* Left: Enhanced Replacements Count (Clean, sharp contrast, refined typography) */}
-          <div className="flex items-center gap-1.5 px-2.5 py-1 select-none">
-            <span className="text-xs sm:text-sm font-extrabold text-slate-950 dark:text-white tabular-nums tracking-tight">
-              {totalReplacements}
-            </span>
-            <span className="text-xs sm:text-sm font-medium text-slate-500 dark:text-zinc-400 tracking-tight">
-              {totalReplacements === 1 ? 'replacement applied' : 'replacements applied'}
-            </span>
+          {/* Left: Enhanced Matches & Replacements Count */}
+          <div className="flex items-center gap-2 sm:gap-2.5 px-2 py-1 select-none text-xs sm:text-sm">
+            <div className="flex items-center gap-1.5">
+              <span className="font-extrabold text-blue-600 dark:text-blue-400 tabular-nums tracking-tight">
+                {totalMatches}
+              </span>
+              <span className="font-medium text-slate-500 dark:text-zinc-400 tracking-tight">
+                {totalMatches === 1 ? 'match found' : 'matches found'}
+              </span>
+            </div>
+            <span className="text-slate-300 dark:text-zinc-700 font-bold">•</span>
+            <div className="flex items-center gap-1.5">
+              <span className="font-extrabold text-slate-950 dark:text-white tabular-nums tracking-tight">
+                {totalReplacements}
+              </span>
+              <span className="font-medium text-slate-500 dark:text-zinc-400 tracking-tight">
+                {totalReplacements === 1 ? 'replacement applied' : 'replacements applied'}
+              </span>
+            </div>
           </div>
 
           {/* Right: Sharp Action Buttons with equipped icons (Image 2) */}
